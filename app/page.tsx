@@ -1,47 +1,89 @@
-export default function Page() {
+'use client'
+
+import { useState } from 'react'
+import { AuthShell } from '@/components/auth/auth-shell'
+import { SignUpForm } from '@/components/auth/signup-form'
+import { LoginForm } from '@/components/auth/login-form'
+import { SellerOnboarding } from '@/components/onboarding/seller-onboarding'
+import { BuyerOnboarding } from '@/components/onboarding/buyer-onboarding'
+import { CompleteScreen } from '@/components/complete-screen'
+import { useApp, type Role } from '@/lib/store'
+import { cn } from '@/lib/utils'
+
+type Step = 'signup' | 'login' | 'onboarding' | 'complete'
+
+const ONBOARDING_STEPS = ['Account', 'Verify', 'Profile'] as const
+
+function Stepper({ current }: { current: number }) {
   return (
-    <main
-      style={{
-        colorScheme: 'light dark',
-        position: 'relative',
-        display: 'flex',
-        minHeight: '100vh',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'light-dark(#fff, #000)',
-        color: 'light-dark(#000, #fff)',
-      }}
-    >
-      <svg
-        aria-hidden="true"
-        style={{ width: 80, height: 80 }}
-        width={80}
-        height={80}
-        fill="none"
-        viewBox="0 0 20 20"
-        xmlns="http://www.w3.org/2000/svg"
-        stroke="currentColor"
-        strokeWidth="0.5"
-      >
-        <path
-          d="M14.2 14.2H17V6.9375C17 4.76288 15.2371 3 13.0625 3H5.8V5.8M14.2 14.2V7.79063L7.79062 14.2H14.2ZM14.2 14.2V17H6.9375C4.76288 17 3 15.2371 3 13.0625V5.8H5.8M5.8 5.8V12.2313L12.2313 5.8H5.8Z"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <p
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: 'calc(50% + 56px)',
-          transform: 'translateX(-50%)',
-          whiteSpace: 'nowrap',
-          fontSize: '14px',
-          fontWeight: 500,
-          color: 'light-dark(#71717a, #a1a1aa)',
-        }}
-      >
-        Your v0 generation will show here.
-      </p>
-    </main>
+    <ol className="mb-6 flex items-center gap-2">
+      {ONBOARDING_STEPS.map((label, i) => {
+        const active = i <= current
+        return (
+          <li key={label} className="flex flex-1 items-center gap-2">
+            <span
+              className={cn(
+                'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
+                active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+              )}
+            >
+              {i + 1}
+            </span>
+            <span className={cn('text-xs font-medium', active ? 'text-foreground' : 'text-muted-foreground')}>
+              {label}
+            </span>
+            {i < ONBOARDING_STEPS.length - 1 && (
+              <span className={cn('h-px flex-1', active ? 'bg-primary/40' : 'bg-border')} />
+            )}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+export default function Page() {
+  const { currentUser, logOut } = useApp()
+  const [step, setStep] = useState<Step>('signup')
+  const [role, setRole] = useState<Role | null>(null)
+
+  function handleSignUpSuccess(r: Role) {
+    setRole(r)
+    setStep('onboarding')
+  }
+
+  function handleLoginSuccess() {
+    setStep('complete')
+  }
+
+  function handleLogout() {
+    logOut()
+    setRole(null)
+    setStep('login')
+  }
+
+  return (
+    <AuthShell>
+      {step === 'signup' && (
+        <SignUpForm onSuccess={handleSignUpSuccess} onSwitchToLogin={() => setStep('login')} />
+      )}
+
+      {step === 'login' && (
+        <LoginForm onSuccess={handleLoginSuccess} onSwitchToSignUp={() => setStep('signup')} />
+      )}
+
+      {step === 'onboarding' && (
+        <div>
+          <Stepper current={2} />
+          {(role ?? currentUser?.role) === 'seller' ? (
+            <SellerOnboarding onDone={() => setStep('complete')} />
+          ) : (
+            <BuyerOnboarding onDone={() => setStep('complete')} />
+          )}
+        </div>
+      )}
+
+      {step === 'complete' && <CompleteScreen onLogout={handleLogout} />}
+    </AuthShell>
   )
 }
